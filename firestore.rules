@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users Collection
+    match /Users/{userId} {
+      // Anyone can read user profiles (needed for author names)
+      allow read: if true;
+      // Only the user can create/update their own profile
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Posts Collection
+    match /Posts/{postId} {
+      // Anyone can read posts
+      allow read: if true;
+      
+      // Only logged-in users can create a post
+      allow create: if request.auth != null;
+      
+      // Only the author can delete or fully edit their post
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+      
+      // ALLOW ANY LOGGED-IN USER TO UPDATE THE 'likes' ARRAY
+      // This rule intercepts the update and allows it if ONLY the 'likes' field is changing
+      allow update: if request.auth != null 
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']);
+      
+      // Comments Sub-collection
+      match /comments/{commentId} {
+        // Anyone can read comments
+        allow read: if true;
+        
+        // Logged-in users can create comments
+        allow create: if request.auth != null;
+        
+        // Only comment author can update/delete
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+      }
+    }
+    
+    // Resources Collection
+    match /Resources/{resourceId} {
+      // Anyone can read resources
+      allow read: if true;
+      // Only admins can write (for this demo, no one can write from client)
+      allow write: if false;
+    }
+  }
+}
